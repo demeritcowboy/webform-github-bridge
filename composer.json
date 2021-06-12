@@ -1,0 +1,6 @@
+{
+    "name": "semperit/webform-github-bridge",
+    "description": "Webform-CiviCRM Github bridge",
+    "type": "drupal-module",
+    "license": "proprietary"
+}

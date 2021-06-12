@@ -1,0 +1,5 @@
+webformgithubbridge.settings:
+  title: 'Webform Github Bridge Settings'
+  parent: system.admin_config_services
+  description: 'Settings to bridge between webform and github.'
+  route_name: webformgithubbridge.settings

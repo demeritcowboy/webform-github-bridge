@@ -1,0 +1,14 @@
+webformgithubbridge.triggerworkflow:
+  path: '/webformgithubbridge'
+  defaults:
+    _controller: '\Drupal\webformgithubbridge\Controller\WorkflowController::run'
+    _title: 'Webform Github Bridge'
+  requirements:
+    _custom_access: '\Drupal\webformgithubbridge\Controller\WorkflowController::checkAccess'
+webformgithubbridge.settings:
+  path: '/admin/config/services/webformgithubbridge'
+  defaults:
+    _form: '\Drupal\webformgithubbridge\Form\SettingsForm'
+    _title: 'Webform Github Bridge Settings'
+  requirements:
+    _permission: 'administer site configuration'
