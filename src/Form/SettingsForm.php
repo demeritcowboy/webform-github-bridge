@@ -70,6 +70,7 @@ class SettingsForm extends ConfigFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->config('webformgithubbridge.settings')
+      ->set('webformgithubbridge.gitlabtoken', $form_state->getValue('webformgithubbridge_gitlabtoken'))
       ->set('webformgithubbridge.username', $form_state->getValue('webformgithubbridge_username'))
       ->set('webformgithubbridge.password', $form_state->getValue('webformgithubbridge_password'))
       ->set('webformgithubbridge.verifyssl', $form_state->getValue('webformgithubbridge_verifyssl'))
