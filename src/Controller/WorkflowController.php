@@ -42,7 +42,7 @@ class WorkflowController extends ControllerBase {
    * @param \Drupal\Core\Mail\MailManagerInterface $mailer
    *   The system mailer.
    */
-  public function __construct(ConfigFactory $config, LoggerChannelFactoryInterface $logger_factory, MailManagerInterface $mailer, CacheFactoryInterface $cacheFactory) {
+  public function __construct(ConfigFactory $config, LoggerChannelFactoryInterface $logger_factory, MailManagerInterface $mailer) {
     $this->config = $config->get('webformgithubbridge.settings');
     $this->logger = $logger_factory->get('webformgithubbridge');
     $this->mailer = $mailer;
@@ -93,7 +93,7 @@ class WorkflowController extends ControllerBase {
     }
     else {
       $json = json_encode([
-        'ref' => '8.x-5.x',
+        'ref' => 'main',
         'inputs' => [
           'prurl' => $request_body['object_attributes']['url'],
 //          'repourl' => $request_body['project']['git_http_url'],
