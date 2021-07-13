@@ -87,16 +87,16 @@ class WorkflowController extends ControllerBase {
       || $request_body['event_type'] !== 'merge_request') {
       $this->logger->info('Only open merge_request events are allowed.');
       if (!empty($email)) {
-        $this->mailer->mail('webformgithubbridge', 'merge_objects_only', $email, 'en', []);
+        $this->mailer->mail('webformgithubbridge', 'webformgithubbridge_merge_objects_only', $email, 'en', []);
       }
       // fall through to end
     }
     else {
       $json = json_encode([
-        'ref' => 'main',
+        'ref' => '8.x-5.x',
         'inputs' => [
           'prurl' => $request_body['object_attributes']['url'],
-          'repourl' => $request_body['project']['git_http_url'],
+//          'repourl' => $request_body['project']['git_http_url'],
 //          'notifyemail' => $email,
         ],
       ]);
@@ -106,7 +106,7 @@ class WorkflowController extends ControllerBase {
       $curl_params = [
         CURLOPT_RETURNTRANSFER => 1,
         CURLOPT_HEADER => FALSE,
-        CURLOPT_URL => 'https://api.github.com/repos/colemanw/webform_civicrm/actions/workflows/main.yml/dispatches',
+        CURLOPT_URL => 'https://api.github.com/repos/semperit/CiviCARROT/actions/workflows/webform_civicrm.yml/dispatches',
         CURLOPT_HTTPHEADER => ['Content-type: application/json', 'Accept: application/vnd.github.v3+json'],
         CURLOPT_USERPWD => $this->config->get('webformgithubbridge.username') . ":" . $this->config->get('webformgithubbridge.password'),
         CURLOPT_POST => TRUE,
@@ -136,7 +136,7 @@ class WorkflowController extends ControllerBase {
       if (!empty($response_str)) {
         $this->logger->error($response_str);
         if (!empty($email)) {
-          $this->mailer->mail('webformgithubbridge', 'trigger_failure', $email, 'en', ['result' => $response_str]);
+          $this->mailer->mail('webformgithubbridge', 'webformgithubbridge_trigger_failure', $email, 'en', ['result' => $response_str]);
         }
       }
     }
