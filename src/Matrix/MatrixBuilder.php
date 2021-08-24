@@ -44,7 +44,8 @@ class MatrixBuilder {
    */
   public function build(): string {
     $repourl = $this->removeDotGit($this->repourl);
-    $carrotjson = file_get_contents("{$repourl}/-/raw/{$this->branch}/tests/civicarrot.json");
+    //$carrotjson = file_get_contents("{$repourl}/-/raw/{$this->branch}/tests/civicarrot.json");
+    $carrotjson = '{"singlePR":{"include":[{"php-versions":"7.3","drupal":"~9.1.1","civicrm":"5.40.x-dev"},{"php-versions":"7.4","drupal":"CIVICARROT_DRUPAL_LATEST","civicrm":"dev-master"}]}}';
     $matrix = json_decode($carrotjson, TRUE);
     $matrix = $this->fillMatrix($matrix['singlePR'] ?? []);
     return $this->replaceCarrotVars(json_encode($matrix));
@@ -52,18 +53,22 @@ class MatrixBuilder {
 
   /**
    * If some parameters are missing put in some defaults.
+   * It's a little trickier if they're using "include", so just assume they
+   * are specifying everything in that case.
    * @param array $matrix
    * @return array
    */
   private function fillMatrix(array $matrix): array {
-    if (empty($matrix['php-versions'])) {
-      $matrix['php-versions'] = ['CIVICARROT_PHP_SENSIBLE'];
-    }
-    if (empty($matrix['drupal'])) {
-      $matrix['drupal'] = ['CIVICARROT_DRUPAL_LATEST'];
-    }
-    if (empty($matrix['civicrm'])) {
-      $matrix['civicrm'] = ['CIVICARROT_CIVI_RELEASECANDIDATE'];
+    if (!isset($matrix['include'])) {
+      if (empty($matrix['php-versions'])) {
+        $matrix['php-versions'] = ['CIVICARROT_PHP_SENSIBLE'];
+      }
+      if (empty($matrix['drupal'])) {
+        $matrix['drupal'] = ['CIVICARROT_DRUPAL_LATEST'];
+      }
+      if (empty($matrix['civicrm'])) {
+        $matrix['civicrm'] = ['CIVICARROT_CIVI_RELEASECANDIDATE'];
+      }
     }
     return $matrix;
   }
@@ -74,21 +79,42 @@ class MatrixBuilder {
    * @return string
    */
   private function replaceCarrotVars(string $s): string {
-    $s = str_replace('CIVICARROT_DRUPAL_LATEST', $this->getDrupalVersion(), $s);
-    $s = str_replace('CIVICARROT_CIVI_DEV', $this->getCiviVersion(self::CIVICARROT_CIVI_DEV), $s);
-    $s = str_replace('CIVICARROT_CIVI_RELEASECANDIDATE', $this->getCiviVersion(self::CIVICARROT_CIVI_RELEASECANDIDATE), $s);
-    $s = str_replace('CIVICARROT_CIVI_LATEST', $this->getCiviVersion(self::CIVICARROT_CIVI_LATEST), $s);
-    // This should be last since we compute it from the packagist data we
-    // already retrieved for the other packages.
-    $s = str_replace('CIVICARROT_PHP_SENSIBLE', $this->getPhpVersion(), $s);
+    // Note we try to avoid network calls if there's no replacement needed.
+    if (strpos($s, 'CIVICARROT_DRUPAL_LATEST') !== FALSE) {
+      $s = str_replace('CIVICARROT_DRUPAL_LATEST', $this->getDrupalVersion(), $s);
+    }
+    if (strpos($s, 'CIVICARROT_CIVI_DEV') !== FALSE) {
+      $s = str_replace('CIVICARROT_CIVI_DEV', $this->getCiviVersion(self::CIVICARROT_CIVI_DEV), $s);
+    }
+    if (strpos($s, 'CIVICARROT_CIVI_RELEASECANDIDATE') !== FALSE) {
+      $s = str_replace('CIVICARROT_CIVI_RELEASECANDIDATE', $this->getCiviVersion(self::CIVICARROT_CIVI_RELEASECANDIDATE), $s);
+    }
+    if (strpos($s, 'CIVICARROT_CIVI_LATEST') !== FALSE) {
+      $s = str_replace('CIVICARROT_CIVI_LATEST', $this->getCiviVersion(self::CIVICARROT_CIVI_LATEST), $s);
+    }
+    if (strpos($s, 'CIVICARROT_PHP_SENSIBLE') !== FALSE) {
+      $s = str_replace('CIVICARROT_PHP_SENSIBLE', $this->getPhpVersion(), $s);
+    }
     return $s;
   }
 
+  /**
+   * Get a drupal version.
+   * At the moment only CIVICARROT_DRUPAL_LATEST is supported.
+   * @return string
+   */
   private function getDrupalVersion(): string {
+    echo "\nhi\n";
     $version = $this->getLatestFromPackagist('drupal/core');
     return empty($version) ? '^9' : "~{$version}";
   }
 
+  /**
+   * Get a civi version.
+   * @param int $stage The enum corresponding to how cutting-edge a version
+   *   you want.
+   * @return string
+   */
   private function getCiviVersion(int $stage): string {
     if ($stage === self::CIVICARROT_CIVI_DEV) {
       // don't even need to make network call
@@ -100,42 +126,36 @@ class MatrixBuilder {
     }
     elseif ($stage === self::CIVICARROT_CIVI_RELEASECANDIDATE) {
       $version = explode('.', $version);
-      $version = "{$version[0]}." . ($version[1] - 1) . '.x-dev';
+      $version = "{$version[0]}." . ($version[1] + 1) . '.x-dev';
     }
     // otherwise if self::CIVICARROT_CIVI_LATEST or something else then just leave as-is
     return $version;
   }
 
+  /**
+   * Get metadata about a package from packagist.org
+   * Cache it since we might call it for the same package a few times.
+   * @param string $package e.g. drupal/core
+   * @return string
+   */
   private function getLatestFromPackagist(string $package): string {
     if (empty(self::$packagist[$package])) {
-      $json = file_get_contents('https://repo.packagist.org/p2/{$package}.json');
+      $json = file_get_contents("https://repo.packagist.org/p2/{$package}.json");
       $info = json_decode($json, TRUE);
       self::$packagist[$package] = $info['packages'][$package][0] ?? [];
     }
     return self::$packagist[$package]['version'] ?? '';
   }
 
+  /**
+   * Get a php version.
+   * At the moment only CIVICARROT_PHP_SENSIBLE is supported.
+   * @return string
+   */
   private function getPhpVersion(): string {
-    // TODO: Just scrap all this and use the version this site is running?
-    $highest_version = '7.0';
-    foreach (self::$packagist as $package) {
-      $php = $package['require']['php'] ?? NULL;
-      if (empty($php)) {
-        continue;
-      }
-      // Take just the first one separated by either space or |
-      $php = explode('|', $php);
-      $php = explode(' ', $php[0]);
-      // Remove other junk
-      $php = preg_replace('[^\d\.]', $php[0]);
-      // Just care about the major+minor version
-      $php = explode('.', $php);
-      $php = $php[0] . (isset($php[1]) ? ".{$php[1]}" : '.0');
-      if (version_compare($php, $highest_version, '>')) {
-        $highest_version = $php;
-      }
-    }
-    return $highest_version;
+    // Just use the version this site is running, since it runs drupal+civi
+    // and so is likely to be a reasonable choice.
+    return phpversion();
   }
 
   /**
