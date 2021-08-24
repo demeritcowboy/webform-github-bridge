@@ -8,7 +8,8 @@ class MatrixBuilder {
   const CIVICARROT_CIVI_RELEASECANDIDATE = 2;
   const CIVICARROT_CIVI_LATEST = 3;
   const CIVICARROT_DRUPAL_LATEST = 4;
-  const CIVICARROT_PHP_SENSIBLE = 5;
+  const CIVICARROT_DRUPAL_PRIOR = 5;
+  const CIVICARROT_PHP_SENSIBLE = 6;
 
   /**
    * @var array
@@ -25,7 +26,7 @@ class MatrixBuilder {
   /**
    * @var string
    * The git branch for the PR
-  */
+   */
   private $branch;
 
   /**
@@ -44,8 +45,8 @@ class MatrixBuilder {
    */
   public function build(): string {
     $repourl = $this->removeDotGit($this->repourl);
-    //$carrotjson = file_get_contents("{$repourl}/-/raw/{$this->branch}/tests/civicarrot.json");
-    $carrotjson = '{"singlePR":{"include":[{"php-versions":"7.3","drupal":"~9.1.1","civicrm":"5.40.x-dev"},{"php-versions":"7.4","drupal":"CIVICARROT_DRUPAL_LATEST","civicrm":"dev-master"}]}}';
+    $carrotjson = file_get_contents("{$repourl}/-/raw/{$this->branch}/tests/civicarrot.json");
+    //$carrotjson = '{"singlePR":{"include":[{"php-versions":"7.3","drupal":"~9.1.1","civicrm":"5.40.x-dev"},{"php-versions":"7.4","drupal":"~9.2.4","civicrm":"dev-master"}]}}';
     $matrix = json_decode($carrotjson, TRUE);
     $matrix = $this->fillMatrix($matrix['singlePR'] ?? []);
     return $this->replaceCarrotVars(json_encode($matrix));
@@ -81,7 +82,10 @@ class MatrixBuilder {
   private function replaceCarrotVars(string $s): string {
     // Note we try to avoid network calls if there's no replacement needed.
     if (strpos($s, 'CIVICARROT_DRUPAL_LATEST') !== FALSE) {
-      $s = str_replace('CIVICARROT_DRUPAL_LATEST', $this->getDrupalVersion(), $s);
+      $s = str_replace('CIVICARROT_DRUPAL_LATEST', $this->getDrupalVersion(self::CIVICARROT_DRUPAL_LATEST), $s);
+    }
+    if (strpos($s, 'CIVICARROT_DRUPAL_PRIOR') !== FALSE) {
+      $s = str_replace('CIVICARROT_DRUPAL_PRIOR', $this->getDrupalVersion(self::CIVICARROT_DRUPAL_PRIOR), $s);
     }
     if (strpos($s, 'CIVICARROT_CIVI_DEV') !== FALSE) {
       $s = str_replace('CIVICARROT_CIVI_DEV', $this->getCiviVersion(self::CIVICARROT_CIVI_DEV), $s);
@@ -100,13 +104,28 @@ class MatrixBuilder {
 
   /**
    * Get a drupal version.
-   * At the moment only CIVICARROT_DRUPAL_LATEST is supported.
+   * @param int $stage The enum corresponding to how cutting-edge a version
+   *   you want.
    * @return string
    */
-  private function getDrupalVersion(): string {
-    echo "\nhi\n";
+  private function getDrupalVersion(int $stage): string {
     $version = $this->getLatestFromPackagist('drupal/core');
-    return empty($version) ? '^9' : "~{$version}";
+    if (empty($version)) {
+      $version = '^9';
+    }
+    elseif ($stage === self::CIVICARROT_DRUPAL_PRIOR) {
+      $version = explode('.', $version);
+      if ($version[1] === '0') {
+        // e.g. if latest was 10.0.0 then this would be ^9.
+        $version = '^' . ($version[0] - 1);
+      }
+      else {
+        // e.g. if latest was 9.2.4 then this would be ~9.1.1 (composer autoadjusts the last digit).
+        $version = "~{$version[0]}." . ($version[1] - 1) . '.1';
+      }
+    }
+    // otherwise if self::CIVICARROT_DRUPAL_LATEST or something else then just leave as-is
+    return $version;
   }
 
   /**
@@ -155,7 +174,8 @@ class MatrixBuilder {
   private function getPhpVersion(): string {
     // Just use the version this site is running, since it runs drupal+civi
     // and so is likely to be a reasonable choice.
-    return phpversion();
+    $php = explode('.', phpversion());
+    return "{$php[0]}.{$php[1]}";
   }
 
   /**
