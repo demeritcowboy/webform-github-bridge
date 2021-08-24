@@ -45,7 +45,10 @@ class MatrixBuilder {
    */
   public function build(): string {
     $repourl = $this->removeDotGit($this->repourl);
-    $carrotjson = file_get_contents("{$repourl}/-/raw/{$this->branch}/tests/civicarrot.json");
+    // git.drupalcode.org will reject requests that look like stock php scripts
+    $streamopts = ['http' => ['user_agent' => 'CiviCARROT (civicarrot@gmail.com)']];
+    $context = stream_context_create($streamopts);
+    $carrotjson = file_get_contents("{$repourl}/-/raw/{$this->branch}/tests/civicarrot.json", FALSE, $context);
     //$carrotjson = '{"singlePR":{"include":[{"php-versions":"7.3","drupal":"~9.1.1","civicrm":"5.40.x-dev"},{"php-versions":"7.4","drupal":"~9.2.4","civicrm":"dev-master"}]}}';
     $matrix = json_decode($carrotjson, TRUE);
     $matrix = $this->fillMatrix($matrix['singlePR'] ?? []);
@@ -159,7 +162,9 @@ class MatrixBuilder {
    */
   private function getLatestFromPackagist(string $package): string {
     if (empty(self::$packagist[$package])) {
-      $json = file_get_contents("https://repo.packagist.org/p2/{$package}.json");
+      $streamopts = ['http' => ['user_agent' => 'CiviCARROT (civicarrot@gmail.com)']];
+      $context = stream_context_create($streamopts);
+      $json = file_get_contents("https://repo.packagist.org/p2/{$package}.json", FALSE, $context);
       $info = json_decode($json, TRUE);
       self::$packagist[$package] = $info['packages'][$package][0] ?? [];
     }
