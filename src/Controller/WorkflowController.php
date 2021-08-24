@@ -10,6 +10,7 @@ use Drupal\Core\Mail\MailManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Drupal\webformgithubbridge\Matrix\MatrixBuilder;
 
 /**
  * Controller for when webhooks come in from gitlab.
@@ -95,6 +96,7 @@ class WorkflowController extends ControllerBase {
       $json = json_encode([
         'ref' => 'main',
         'inputs' => [
+          'matrix' => $this->assembleMatrix($request_body['project']['git_http_url'], $request_body['object_attributes']['source_branch']),
           'prurl' => $request_body['object_attributes']['url'],
 //          'repourl' => $request_body['project']['git_http_url'],
 //          'notifyemail' => $email,
@@ -155,6 +157,16 @@ class WorkflowController extends ControllerBase {
     }
     $this->logger->warning('Invalid token: @token', ['@token' => $secret]);
     return AccessResult::forbidden();
+  }
+
+  /**
+   * Assemble the testing matrix.
+   * @param string $repourl
+   * @param string $branch The git branch for the PR
+   * @return string A JSON string suitable for github actions matrix
+   */
+  private function assembleMatrix(string $repourl, string $branch): string {
+    return (new MatrixBuilder($repourl, $branch))->build();
   }
 
 }
