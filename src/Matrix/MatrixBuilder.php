@@ -25,18 +25,18 @@ class MatrixBuilder {
 
   /**
    * @var string
-   * The git branch for the PR
+   * The latest git commit for the PR
    */
-  private $branch;
+  private $commit;
 
   /**
    * constructor
    * @param string $repourl
-   * @param string $branch
+   * @param string $commit
    */
-  public function __construct(string $repourl, string $branch) {
+  public function __construct(string $repourl, string $commit) {
     $this->repourl = $repourl;
-    $this->branch = $branch;
+    $this->commit = $commit;
   }
 
   /**
@@ -48,7 +48,7 @@ class MatrixBuilder {
     // git.drupalcode.org will reject requests that look like stock php scripts
     $streamopts = ['http' => ['user_agent' => 'CiviCARROT (civicarrot@gmail.com)']];
     $context = stream_context_create($streamopts);
-    $carrotjson = file_get_contents("{$repourl}/-/raw/{$this->branch}/tests/civicarrot.json", FALSE, $context);
+    $carrotjson = file_get_contents("{$repourl}/-/raw/{$this->commit}/tests/civicarrot.json", FALSE, $context);
     //$carrotjson = '{"singlePR":{"include":[{"php-versions":"7.3","drupal":"~9.1.1","civicrm":"5.40.x-dev"},{"php-versions":"7.4","drupal":"~9.2.4","civicrm":"dev-master"}]}}';
     $matrix = json_decode($carrotjson, TRUE);
     $matrix = $this->fillMatrix($matrix['singlePR'] ?? []);
